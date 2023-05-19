@@ -1,1 +1,1 @@
-# goproject-tmpl
+# gh-describe
