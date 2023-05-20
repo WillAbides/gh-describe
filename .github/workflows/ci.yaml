@@ -1,5 +1,14 @@
 name: ci
-on: [ push, workflow_dispatch ]
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    types:
+      - synchronize
+      - opened
+      - reopened
+  workflow_dispatch:
 jobs:
   cibuild:
     name: cibuild

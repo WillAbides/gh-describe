@@ -6,14 +6,12 @@ on:
 concurrency: release
 jobs:
   release:
-    # only run if the repository is WillAbides/gh-describe
-    if: github.repository == 'WillAbides/gh-describe'
+    # Don't run on forks
+    if: ${{ !github.event.repository.fork }}
     runs-on: ubuntu-22.04
     permissions: write-all
     steps:
       - uses: actions/checkout@v3
-        with:
-          fetch-depth: 0
       - uses: WillAbides/setup-go-faster@v1
         id: setup-go
         with:
@@ -25,10 +23,6 @@ jobs:
             ${{ steps.setup-go.outputs.GOMODCACHE }}
           key: ${{ runner.os }}-release-${{ hashFiles('**/go.sum') }}-${{ hashFiles('script/**') }}-${{ hashFiles('.goreleaser.yaml') }}
           restore-keys: ${{ runner.os }}-release-
-      - name: git config
-        run: |
-          git config --global user.name 'github-actions[bot]'
-          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
       - run: script/release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
