@@ -6,8 +6,8 @@ on:
 concurrency: release
 jobs:
   release:
-    # only run if the repository is WillAbides/gh-describe
-    if: github.repository == 'WillAbides/gh-describe'
+    # Don't run on forks
+    if: ${{ !github.event.repository.fork }}
     runs-on: ubuntu-22.04
     permissions: write-all
     steps:

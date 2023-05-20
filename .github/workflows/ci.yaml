@@ -1,5 +1,14 @@
 name: ci
-on: [ push, workflow_dispatch ]
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    types:
+      - synchronize
+      - opened
+      - reopened
+  workflow_dispatch:
 jobs:
   cibuild:
     name: cibuild
@@ -22,13 +31,3 @@ jobs:
       - run: script/generate --check
       - run: script/test
       - run: script/lint
-  action-testing:
-    name: action-testing
-    runs-on: ubuntu-22.04
-    # don't run on forks
-    if: ${{ github.event.repository.fork }}
-    steps:
-      - name: Dump GitHub context
-        env:
-          GITHUB_CONTEXT: ${{ toJSON(github) }}
-        run: echo "$GITHUB_CONTEXT"
