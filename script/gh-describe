@@ -1,0 +1,20 @@
+#!/bin/sh
+
+set -e
+
+CDPATH="" cd -- "$(dirname -- "$0")/.."
+
+go build .
+
+mkdir -p tmp/xdg/data tmp/xdg/state
+
+script/bindown -q install gh
+
+export XDG_DATA_HOME="$PWD"/tmp/xdg/data
+export XDG_STATE_HOME="$PWD"/tmp/xdg/state
+
+if [ -f "$XDG_DATA_HOME"/gh/extensions/gh-describe ]; then
+  bin/gh extension install .
+fi
+
+bin/gh describe "$@"

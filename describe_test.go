@@ -1,4 +1,4 @@
-package ghdescribe
+package main
 
 import (
 	"testing"
