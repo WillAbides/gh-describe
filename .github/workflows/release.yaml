@@ -1,14 +1,35 @@
 name: release
 on:
   push:
-    tags:
-      - "v*"
-permissions:
-  contents: write
-
+    branches:
+      - main
+concurrency: release
 jobs:
   release:
-    runs-on: ubuntu-latest
+    # only run if the repository is WillAbides/gh-describe
+    if: github.repository == 'WillAbides/gh-describe'
+    runs-on: ubuntu-22.04
+    permissions: write-all
     steps:
       - uses: actions/checkout@v3
-      - uses: cli/gh-extension-precompile@v1
+        with:
+          fetch-depth: 0
+      - uses: WillAbides/setup-go-faster@v1
+        id: setup-go
+        with:
+          go-version: '1.20.x'
+      - uses: actions/cache@v3
+        with:
+          path: |
+            ${{ steps.setup-go.outputs.GOCACHE }}
+            ${{ steps.setup-go.outputs.GOMODCACHE }}
+          key: ${{ runner.os }}-release-${{ hashFiles('**/go.sum') }}-${{ hashFiles('script/**') }}-${{ hashFiles('.goreleaser.yaml') }}
+          restore-keys: ${{ runner.os }}-release-
+      - name: git config
+        run: |
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+      - run: script/release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
