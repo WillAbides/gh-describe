@@ -22,3 +22,10 @@ jobs:
       - run: script/generate --check
       - run: script/test
       - run: script/lint
+  action-testing:
+    name: action-testing
+    steps:
+      - name: Dump GitHub context
+        env:
+          GITHUB_CONTEXT: ${{ toJSON(github) }}
+        run: echo "$GITHUB_CONTEXT"
