@@ -13,7 +13,7 @@ script/bindown -q install gh
 export XDG_DATA_HOME="$PWD"/tmp/xdg/data
 export XDG_STATE_HOME="$PWD"/tmp/xdg/state
 
-if [ -f "$XDG_DATA_HOME"/gh/extensions/gh-describe ]; then
+if [ ! -e "$XDG_DATA_HOME"/gh/extensions/gh-describe ]; then
   bin/gh extension install .
 fi
 
