@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"math"
 	"os"
 	"regexp"
 	"sort"
@@ -16,6 +15,8 @@ import (
 	"github.com/gobwas/glob"
 	"github.com/shurcool/githubv4"
 )
+
+const description = `Like git-describe, but for GitHub repositories. See https://github.com/WillAbides/gh-describe for more details.`
 
 var kongVars = kong.Vars{
 	"commitish_help":     `commit-ish object names to describe.`,
@@ -87,7 +88,7 @@ func (f *fatalError) Error() string {
 
 func main() {
 	var cli cmd
-	parser := kong.Parse(&cli, kongVars, kong.Name("gh-describe"))
+	parser := kong.Parse(&cli, kongVars, kong.Name("gh-describe"), kong.Description(description))
 	_, err := parser.Parse(os.Args[1:])
 	parser.FatalIfErrorf(err)
 	ctx := context.Background()
@@ -184,21 +185,30 @@ func run(ctx context.Context, cli *cmd) error {
 	}
 
 	for _, commitish := range cli.Commitish {
-		err = cli.runCommitish(ctx, commitish)
+		var out string
+		out, err = cli.runCommitish(ctx, commitish)
 		if err != nil {
 			return err
 		}
+		fmt.Fprintln(cli.stdout, out)
 	}
 
 	return nil
 }
 
+func (c *cmd) distance(node *refNode) int {
+	if c.Contains {
+		return node.Compare.BehindBy
+	}
+	return node.Compare.AheadBy
+}
+
 const minAbbrev = 4
 
-func (c *cmd) runCommitish(ctx context.Context, commitish string) error {
+func (c *cmd) runCommitish(ctx context.Context, commitish string) (string, error) {
 	sha, err := c.getSha(ctx, commitish)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	abbrevSha := sha
@@ -218,72 +228,63 @@ func (c *cmd) runCommitish(ctx context.Context, commitish string) error {
 	}
 	refs, err := c.getAllRefs(ctx, commitish, prefix)
 	if err != nil {
-		return err
+		return "", err
 	}
-	minDistance := math.MaxInt32
-	winners := make([]refNode, 0, len(refs))
+	filtered := make([]refNode, 0, len(refs))
 	for _, node := range refs {
-		distance := node.Compare.AheadBy
 		excludeStatus := githubv4.ComparisonStatusBehind
 		if c.Contains {
-			distance = node.Compare.BehindBy
 			excludeStatus = githubv4.ComparisonStatusAhead
 		}
-		if !c.match(node.Name) {
-			continue
-		}
-		if node.Compare.Status == githubv4.ComparisonStatusDiverged {
+		if !c.match(node.Name) ||
+			node.Compare.Status == githubv4.ComparisonStatusDiverged ||
+			node.Compare.Status == excludeStatus {
 			continue
 		}
 		if !c.Tags && !c.All && node.Target.Typename == "Commit" {
 			continue
 		}
-		if node.Compare.Status == excludeStatus {
-			continue
-		}
-		if distance > minDistance {
-			continue
-		}
-		if distance < minDistance {
-			minDistance = distance
-			winners = winners[:0]
-		}
-		winners = append(winners, node)
+		filtered = append(filtered, node)
 	}
 
-	if len(winners) == 0 {
+	if len(filtered) == 0 {
 		if c.ExactMatch {
-			return fatalf("no tag exactly matches '%s'", commitish)
+			return "", fatalf("no tag exactly matches '%s'", commitish)
 		}
 		if c.Always {
-			fmt.Fprintln(c.stdout, abbrevSha)
-			return nil
+			return abbrevSha, nil
 		}
-		return fatalf("No tags can describe '%s'\nTry --always, or create some tags.", commitish)
+		return "", fatalf("No tags can describe '%s'\nTry --always, or create some tags.", commitish)
 	}
 
-	sort.Slice(winners, func(i, j int) bool {
-		// tags first
-		if strings.HasPrefix(winners[i].Name, "tags/") != strings.HasPrefix(winners[j].Name, "tags/") {
-			return strings.HasPrefix(winners[i].Name, "tags/")
+	sort.Slice(filtered, func(i, j int) bool {
+		if c.distance(&filtered[i]) != c.distance(&filtered[j]) {
+			return c.distance(&filtered[i]) < c.distance(&filtered[j])
 		}
-		return winners[i].Name < winners[j].Name
+		// tags first. this only matters when --all is specified
+		if strings.HasPrefix(filtered[i].Name, "tags/") != strings.HasPrefix(filtered[j].Name, "tags/") {
+			return strings.HasPrefix(filtered[i].Name, "tags/")
+		}
+		// annotated tags first
+		iIsAnnotatedTag := filtered[i].Target.Typename == "Tag"
+		jIsAnnotatedTag := filtered[j].Target.Typename == "Tag"
+		if iIsAnnotatedTag != jIsAnnotatedTag {
+			return iIsAnnotatedTag
+		}
+		// for annotated tags, newest date first
+		if iIsAnnotatedTag {
+			return filtered[i].Target.Tag.Tagger.Date.Time.After(filtered[j].Target.Tag.Tagger.Date.Time)
+		}
+		// everything else is sorted by name
+		return filtered[i].Name < filtered[j].Name
 	})
 
-	winner := winners[0]
-	distance := winner.Compare.AheadBy
-	if c.Contains {
-		distance = winner.Compare.BehindBy
+	result := filtered[0]
+	output := fmt.Sprintf("%s-%d-g%s", result.Name, c.distance(&result), abbrevSha)
+	if !c.Long && c.distance(&result) == 0 {
+		output = result.Name
 	}
-	if distance > 0 && c.ExactMatch {
-		return fatalf("no tag exactly matches '%s'", commitish)
-	}
-	output := fmt.Sprintf("%s-%d-g%s", winner.Name, distance, abbrevSha)
-	if !c.Long && distance == 0 {
-		output = winner.Name
-	}
-	fmt.Fprintln(c.stdout, output)
-	return nil
+	return output, nil
 }
 
 func (c *cmd) getSha(ctx context.Context, commitish string) (string, error) {
@@ -351,6 +352,11 @@ type refNode struct {
 	} `graphql:"compare(headRef: $head)"`
 	Target struct {
 		Typename string `graphql:"__typename"`
+		Tag      struct {
+			Tagger struct {
+				Date githubv4.DateTime
+			}
+		} `graphql:"... on Tag"`
 	} `graphql:"target"`
 }
 
@@ -363,7 +369,7 @@ func (c *cmd) getAllRefs(ctx context.Context, commitish, prefix string) ([]refNo
 					EndCursor   githubv4.String
 				}
 				Nodes []refNode
-			} `graphql:"refs(first: 100, after: $afterCursor, refPrefix: $refPrefix, orderBy: {field: TAG_COMMIT_DATE, direction: DESC})"`
+			} `graphql:"refs(first: 100, after: $afterCursor, refPrefix: $refPrefix)"`
 		} `graphql:"repository(name: $repoName, owner: $owner)"`
 	}
 	variables := map[string]any{
