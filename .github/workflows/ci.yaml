@@ -25,6 +25,8 @@ jobs:
   action-testing:
     name: action-testing
     runs-on: ubuntu-22.04
+    # don't run on forks
+    if: github.event.repository.fork == false
     steps:
       - name: Dump GitHub context
         env:
