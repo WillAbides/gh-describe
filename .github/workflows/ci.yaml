@@ -24,6 +24,7 @@ jobs:
       - run: script/lint
   action-testing:
     name: action-testing
+    runs-on: ubuntu-22.04
     steps:
       - name: Dump GitHub context
         env:
