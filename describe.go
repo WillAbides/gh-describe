@@ -137,6 +137,10 @@ func run(ctx context.Context, cli *cmd) error {
 		return fmt.Errorf("--debug is not implemented")
 	}
 
+	if cli.Abbrev != nil && *cli.Abbrev == 0 && cli.Long {
+		return fatalf("--long is incompatible with --abbrev=0")
+	}
+
 	for _, m := range cli.Match {
 		g, err := glob.Compile(m)
 		if err != nil {
@@ -282,6 +286,9 @@ func (c *cmd) runCommitish(ctx context.Context, commitish string) (string, error
 	result := filtered[0]
 	output := fmt.Sprintf("%s-%d-g%s", result.Name, c.distance(&result), abbrevSha)
 	if !c.Long && c.distance(&result) == 0 {
+		output = result.Name
+	}
+	if c.Abbrev != nil && *c.Abbrev == 0 {
 		output = result.Name
 	}
 	return output, nil
