@@ -69,16 +69,41 @@ type cmd struct {
 	regexExcluders []*regexp.Regexp
 }
 
+func fatalf(format string, args ...interface{}) error {
+	return &fatalError{message: fmt.Sprintf(format, args...)}
+}
+
+func fatalErr(err error) error {
+	return &fatalError{message: err.Error()}
+}
+
+type fatalError struct {
+	message string
+}
+
+func (f *fatalError) Error() string {
+	return fmt.Sprintf("fatal: %s", f.message)
+}
+
 func main() {
 	var cli cmd
 	parser := kong.Parse(&cli, kongVars, kong.Name("gh-describe"))
-	k, err := parser.Parse(os.Args[1:])
+	_, err := parser.Parse(os.Args[1:])
 	parser.FatalIfErrorf(err)
 	ctx := context.Background()
 	cli.stdout = os.Stdout
 	cli.stderr = os.Stderr
 	err = run(ctx, &cli)
-	k.FatalIfErrorf(err)
+	if err == nil {
+		return
+	}
+	if _, ok := err.(*fatalError); ok {
+		fmt.Fprintf(cli.stderr, "%s\n", err)
+		os.Exit(128)
+	} else {
+		fmt.Fprintf(cli.stderr, "error: %s\n", err)
+		os.Exit(1)
+	}
 }
 
 func run(ctx context.Context, cli *cmd) error {
@@ -102,13 +127,13 @@ func run(ctx context.Context, cli *cmd) error {
 
 	// Not yet implemented options.
 	if cli.NoMatch {
-		return fmt.Errorf("--no-match is not yet implemented")
+		return fmt.Errorf("--no-match is not implemented")
 	}
 	if cli.NoExclude {
-		return fmt.Errorf("--no-exclude is not yet implemented")
+		return fmt.Errorf("--no-exclude is not implemented")
 	}
 	if cli.Debug {
-		return fmt.Errorf("--debug is not yet implemented")
+		return fmt.Errorf("--debug is not implemented")
 	}
 
 	for _, m := range cli.Match {
@@ -182,7 +207,9 @@ func (c *cmd) runCommitish(ctx context.Context, commitish string) error {
 		if abbrev < minAbbrev {
 			abbrev = minAbbrev
 		}
-		abbrevSha = abbrevSha[:abbrev]
+		if abbrev < len(abbrevSha) {
+			abbrevSha = abbrevSha[:abbrev]
+		}
 	}
 
 	prefix := "refs/tags/"
@@ -225,11 +252,14 @@ func (c *cmd) runCommitish(ctx context.Context, commitish string) error {
 	}
 
 	if len(winners) == 0 {
+		if c.ExactMatch {
+			return fatalf("no tag exactly matches '%s'", commitish)
+		}
 		if c.Always {
 			fmt.Fprintln(c.stdout, abbrevSha)
 			return nil
 		}
-		return fmt.Errorf("No tags can describe '%s'\nTry --always, or create some tags.", commitish)
+		return fatalf("No tags can describe '%s'\nTry --always, or create some tags.", commitish)
 	}
 
 	sort.Slice(winners, func(i, j int) bool {
@@ -244,6 +274,9 @@ func (c *cmd) runCommitish(ctx context.Context, commitish string) error {
 	distance := winner.Compare.AheadBy
 	if c.Contains {
 		distance = winner.Compare.BehindBy
+	}
+	if distance > 0 && c.ExactMatch {
+		return fatalf("no tag exactly matches '%s'", commitish)
 	}
 	output := fmt.Sprintf("%s-%d-g%s", winner.Name, distance, abbrevSha)
 	if !c.Long && distance == 0 {
@@ -269,11 +302,11 @@ func (c *cmd) getSha(ctx context.Context, commitish string) (string, error) {
 
 	err := c.graphqlClient.QueryWithContext(ctx, "", &query, variables)
 	if err != nil {
-		return "", err
+		return "", fatalErr(err)
 	}
 	oid := query.Repository.Object.Oid
 	if oid == "" {
-		return "", fmt.Errorf("Not a valid object name %s", commitish)
+		return "", fatalf("Not a valid object name %s", commitish)
 	}
 	return oid, nil
 }
@@ -347,7 +380,7 @@ func (c *cmd) getAllRefs(ctx context.Context, commitish, prefix string) ([]refNo
 	for {
 		err := c.graphqlClient.QueryWithContext(ctx, "", &query, variables)
 		if err != nil {
-			return nil, err
+			return nil, fatalErr(err)
 		}
 		refs = append(refs, query.Repository.Refs.Nodes...)
 		if !query.Repository.Refs.PageInfo.HasNextPage {
