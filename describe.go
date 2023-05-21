@@ -17,6 +17,8 @@ import (
 	"github.com/shurcool/githubv4"
 )
 
+var version = "unknown"
+
 const description = `Like git-describe, but for GitHub repositories. See https://github.com/WillAbides/gh-describe for more details.`
 
 var kongVars = kong.Vars{
@@ -36,25 +38,28 @@ var kongVars = kong.Vars{
 	"match_semver_help":  `only consider tags satisfying semver <constraint>`,
 	"semver_prefix_help": `prefix to use when parsing semver tags`,
 	"repo_help":          `select another repository using the [HOST/]OWNER/REPO format`,
+	"version_help":       `output gh-describe version and exit`,
+	"version":            version,
 }
 
 type cmd struct {
-	Repo         string   `kong:"short=R,help=${repo_help}"`
-	Commitish    []string `kong:"arg,name=commit-ish,default=HEAD,help=${commitish_help}"`
-	Contains     bool     `kong:"help=${contains_help}"`
-	Debug        bool     `kong:"help=${debug_help}"`
-	All          bool     `kong:"help=${all_help}"`
-	Tags         bool     `kong:"help=${tags_help}"`
-	Long         bool     `kong:"help=${long_help}"`
-	Abbrev       *int     `kong:"placeholder='<n>',help=${abbrev_help}"`
-	ExactMatch   bool     `kong:"help=${exact_match_help}"`
-	Match        []string `kong:"placeholder=<pattern>,help=${match_help}"`
-	RegexMatch   []string `kong:"name=regex-match,placeholder=<regex>,help=${regex_match_help}"`
-	Exclude      []string `kong:"placeholder=<pattern>,help=${exclude_help}"`
-	RegexExclude []string `kong:"name=regex-exclude,placeholder=<regex>,help=${regex_exclude_help}"`
-	MatchSemver  []string `kong:"name=match-semver,placeholder=<constraint>,help=${match_semver_help}"`
-	SemverPrefix string   `kong:"name=semver-prefix,placeholder=<prefix>,help=${semver_prefix_help}"`
-	Always       bool     `kong:"help=${always_help}"`
+	Repo         string           `kong:"short=R,help=${repo_help}"`
+	Commitish    []string         `kong:"arg,name=commit-ish,default=HEAD,help=${commitish_help}"`
+	Contains     bool             `kong:"help=${contains_help}"`
+	Debug        bool             `kong:"help=${debug_help}"`
+	All          bool             `kong:"help=${all_help}"`
+	Tags         bool             `kong:"help=${tags_help}"`
+	Long         bool             `kong:"help=${long_help}"`
+	Abbrev       *int             `kong:"placeholder='<n>',help=${abbrev_help}"`
+	ExactMatch   bool             `kong:"help=${exact_match_help}"`
+	Match        []string         `kong:"placeholder=<pattern>,help=${match_help}"`
+	RegexMatch   []string         `kong:"name=regex-match,placeholder=<regex>,help=${regex_match_help}"`
+	Exclude      []string         `kong:"placeholder=<pattern>,help=${exclude_help}"`
+	RegexExclude []string         `kong:"name=regex-exclude,placeholder=<regex>,help=${regex_exclude_help}"`
+	MatchSemver  []string         `kong:"name=match-semver,placeholder=<constraint>,help=${match_semver_help}"`
+	SemverPrefix string           `kong:"name=semver-prefix,placeholder=<prefix>,help=${semver_prefix_help}"`
+	Always       bool             `kong:"help=${always_help}"`
+	Version      kong.VersionFlag `kong:"help=${version_help}"`
 
 	// Unsupported options from git-describe.
 	// Here so we can output a friendlier error message.
