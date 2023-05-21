@@ -9,6 +9,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/Masterminds/semver/v3"
 	"github.com/alecthomas/kong"
 	"github.com/cli/go-gh/v2/pkg/api"
 	"github.com/cli/go-gh/v2/pkg/repository"
@@ -32,6 +33,8 @@ var kongVars = kong.Vars{
 	"always_help":        `show abbreviated commit object as fallback`,
 	"regex_match_help":   `only consider tags matching <regex> (uses re2/go syntax)`,
 	"regex_exclude_help": `do not consider tags matching <regex> (uses re2/go syntax)`,
+	"match_semver_help":  `only consider tags satisfying semver <constraint>`,
+	"semver_prefix_help": `prefix to use when parsing semver tags`,
 	"repo_help":          `select another repository using the [HOST/]OWNER/REPO format`,
 }
 
@@ -49,6 +52,8 @@ type cmd struct {
 	RegexMatch   []string `kong:"name=regex-match,placeholder=<regex>,help=${regex_match_help}"`
 	Exclude      []string `kong:"placeholder=<pattern>,help=${exclude_help}"`
 	RegexExclude []string `kong:"name=regex-exclude,placeholder=<regex>,help=${regex_exclude_help}"`
+	MatchSemver  []string `kong:"name=match-semver,placeholder=<constraint>,help=${match_semver_help}"`
+	SemverPrefix string   `kong:"name=semver-prefix,placeholder=<prefix>,help=${semver_prefix_help}"`
 	Always       bool     `kong:"help=${always_help}"`
 
 	// Unsupported options from git-describe.
@@ -68,6 +73,7 @@ type cmd struct {
 	stderr         io.Writer
 	regexMatchers  []*regexp.Regexp
 	regexExcluders []*regexp.Regexp
+	semverMatchers []*semver.Constraints
 }
 
 func fatalf(format string, args ...interface{}) error {
@@ -171,6 +177,14 @@ func run(ctx context.Context, cli *cmd) error {
 			return err
 		}
 		cli.regexExcluders = append(cli.regexExcluders, r)
+	}
+
+	for _, m := range cli.MatchSemver {
+		c, err := semver.NewConstraint(m)
+		if err != nil {
+			return err
+		}
+		cli.semverMatchers = append(cli.semverMatchers, c)
 	}
 
 	var err error
@@ -343,6 +357,22 @@ func (c *cmd) match(name string) bool {
 	}
 	for _, m := range c.regexMatchers {
 		if m.MatchString(name) {
+			return true
+		}
+	}
+	for _, m := range c.semverMatchers {
+		n, ok := strings.CutPrefix(name, c.SemverPrefix)
+		if !ok {
+			continue
+		}
+		v, err := semver.StrictNewVersion(n)
+		if err != nil {
+			continue
+		}
+		ok, reasons := m.Validate(v)
+		// use reasons when implementing --debug
+		_ = reasons
+		if ok {
 			return true
 		}
 	}
