@@ -35,6 +35,7 @@ Flags:
       --match-semver=<constraint>,...    only consider tags satisfying semver <constraint>
       --semver-prefix=<prefix>           prefix to use when parsing semver tags
       --always                           show abbreviated commit object as fallback
+      --version                          output gh-describe version and exit
 ```
 
 <!--- end usage output --->
