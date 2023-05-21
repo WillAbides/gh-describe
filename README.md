@@ -18,20 +18,23 @@ Arguments:
   [<commit-ish> ...]    commit-ish object names to describe.
 
 Flags:
-  -h, --help                         Show context-sensitive help.
-  -R, --repo=STRING                  select another repository using the [HOST/]OWNER/REPO format
-      --contains                     find the tag that comes after the commit
-      --debug                        debug search strategy on stderr
-      --all                          use any ref
-      --tags                         use any tag, even unannotated
-      --long                         always use long format
-      --abbrev=<n>                   use <n> digits to display object names
-      --exact-match                  only output exact matches
-      --match=<pattern>,...          only consider tags matching <pattern>
-      --regex-match=<regex>,...      only consider tags matching <regex> (uses re2/go syntax)
-      --exclude=<pattern>,...        do not consider tags matching <pattern>
-      --regex-exclude=<regex>,...    do not consider tags matching <regex> (uses re2/go syntax)
-      --always                       show abbreviated commit object as fallback
+  -h, --help                             Show context-sensitive help.
+  -R, --repo=STRING                      select another repository using the [HOST/]OWNER/REPO
+                                         format
+      --contains                         find the tag that comes after the commit
+      --debug                            debug search strategy on stderr
+      --all                              use any ref
+      --tags                             use any tag, even unannotated
+      --long                             always use long format
+      --abbrev=<n>                       use <n> digits to display object names
+      --exact-match                      only output exact matches
+      --match=<pattern>,...              only consider tags matching <pattern>
+      --regex-match=<regex>,...          only consider tags matching <regex> (uses re2/go syntax)
+      --exclude=<pattern>,...            do not consider tags matching <pattern>
+      --regex-exclude=<regex>,...        do not consider tags matching <regex> (uses re2/go syntax)
+      --match-semver=<constraint>,...    only consider tags satisfying semver <constraint>
+      --semver-prefix=<prefix>           prefix to use when parsing semver tags
+      --always                           show abbreviated commit object as fallback
 ```
 
 <!--- end usage output --->

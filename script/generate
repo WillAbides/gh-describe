@@ -21,4 +21,5 @@ if [ "$1" = "--check" ]; then
 fi
 
 go generate ./...
+go mod tidy
 script/generate-readme
