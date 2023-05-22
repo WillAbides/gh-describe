@@ -19,56 +19,173 @@ import (
 
 var version = "unknown"
 
-const description = `Like git-describe, but for GitHub repositories. See https://github.com/WillAbides/gh-describe for more details.`
+const description = `Like git-describe, but for GitHub repositories. 
+See https://github.com/WillAbides/gh-describe for more details.
+
+The command finds the most recent tag that is reachable from a
+commit. If the tag points to the commit, then only the tag is
+shown. Otherwise, it suffixes the tag name with the number of
+additional commits on top of the tagged object and the
+abbreviated object name of the most recent commit. The result
+is a "human-readable" object name which can also be used to
+identify the commit to other git commands.
+
+By default (without --all or --tags) gh-describe only shows
+annotated tags.
+`
 
 var kongVars = kong.Vars{
-	"commitish_help":     `commit-ish object names to describe.`,
-	"contains_help":      `find the tag that comes after the commit`,
-	"debug_help":         `debug search strategy on stderr`,
-	"all_help":           `use any ref`,
-	"tags_help":          `use any tag, even unannotated`,
-	"long_help":          `always use long format`,
-	"abbrev_help":        `use <n> digits to display object names`,
-	"exact_match_help":   `only output exact matches`,
-	"match_help":         `only consider tags matching <pattern>`,
-	"exclude_help":       `do not consider tags matching <pattern>`,
-	"always_help":        `show abbreviated commit object as fallback`,
-	"regex_match_help":   `only consider tags matching <regex> (uses re2/go syntax)`,
-	"regex_exclude_help": `do not consider tags matching <regex> (uses re2/go syntax)`,
-	"match_semver_help":  `only consider tags satisfying semver <constraint>`,
-	"semver_prefix_help": `prefix to use when parsing semver tags`,
-	"repo_help":          `select another repository using the [HOST/]OWNER/REPO format`,
-	"version_help":       `output gh-describe version and exit`,
-	"version":            version,
+	"commitish_help": `
+Commit-ish object names to describe. Defaults to HEAD if omitted.
+`,
+
+	"all_help": `
+Instead of using only the annotated tags, use any ref
+found in refs/ namespace.  This option enables matching
+any known branch or lightweight tag.
+`,
+
+	"tags_help": `
+Instead of using only the annotated tags, use any tag
+found in refs/tags namespace.  This option enables matching
+a lightweight (non-annotated) tag.
+`,
+
+	"contains_help": `
+Instead of finding the tag that predates the commit, find
+the tag that comes after the commit, and thus contains it.
+Automatically implies --tags.
+`,
+
+	"abbrev_help": `
+Instead of using the full sha1, use n digits, to represent
+the sha1.  Minimum length is 4. An n of 0 will suppress
+long format, only showing the closest tag.
+`,
+
+	"exact_match_help": `
+Only output exact matches (a tag directly references the supplied commit).
+This has no relation to the --match* options.
+`,
+
+	"debug_help": `
+Verbosely display information about the searching strategy
+being employed to standard error.  The tag name will still
+be printed to standard out.
+`,
+
+	"long_help": `
+Always output the long format (the tag, the number of commits
+and the abbreviated commit name) even when it matches a tag.
+This is useful when you want to see parts of the commit object name
+in "describe" output, even when the commit in question happens to be
+a tagged version.  Instead of just emitting the tag name, it will
+describe such a commit as v1.2-0-gdeadbee (0th commit since tag v1.2
+that points at object deadbee....).
+`,
+
+	"match_help": `
+Only consider tags matching the given glob(7) pattern,
+excluding the "refs/tags/" prefix. If used with --all, it also
+considers local branches matching the pattern excluding "refs/heads/" 
+prefix; references of other types are never considered. If given
+multiple times, a list of patterns will be accumulated, and tags
+matching any of the patterns will be considered. When combined with
+--match-regex and/or --match-semver a tag will be considered when it
+matches any of the --match* patterns.
+`,
+
+	"exclude_help": `
+Do not consider tags matching the given glob(7) pattern, excluding
+the "refs/tags/" prefix. If used with --all, it also does not consider
+local branches matching the pattern, excluding "refs/heads/" prefix;
+references of other types are never considered. If given multiple times,
+a list of patterns will be accumulated and tags matching any of the
+patterns will be excluded. When combined with --match a tag will be
+considered when it matches at least one --match pattern and does not
+match any of the --exclude patterns.
+`,
+
+	"always_help": `
+Show commit object as fallback.
+`,
+
+	"regex_match_help": `
+Only consider tags matching the given regular expression (re2/go flavor),
+excluding the "refs/tags/" prefix. If used with --all, it also
+considers local branches matching the pattern excluding "refs/heads/" 
+prefix; references of other types are never considered. If given
+multiple times, a list of patterns will be accumulated, and tags
+matching any of the patterns will be considered. When combined with
+--match and/or --match-semver a tag will be considered when it
+matches any of the --match* patterns.
+`,
+
+	"regex_exclude_help": `
+Do not consider tags matching the given regular expression (re2/go flavor), 
+excluding the "refs/tags/" prefix. If used with --all, it also does not 
+consider local branches matching the pattern, excluding "refs/heads/" prefix;
+references of other types are never considered. If given multiple times,
+a list of patterns will be accumulated and tags matching any of the
+patterns will be excluded. When combined with --match a tag will be
+considered when it matches at least one --match pattern and does not
+match any of the --exclude patterns.
+`,
+
+	"match_semver_help": `
+Only consider tags that satisfy the given semver constraint,
+excluding the "refs/tags/" prefix. If used with --all, it also
+considers local branches matching the pattern excluding "refs/heads/"
+prefix; references of other types are never considered. If given
+multiple times, a list of constraints will be accumulated, and tags
+satisfying any of the constraints will be considered. When combined
+with --match and/or --match-regex a tag will be considered when it
+matches any of the --match* patterns.
+`,
+
+	"semver_prefix_help": `
+Prefix to use when matching semver constraints. Before matching, the
+prefix is stripped from the tag name. Ignored unless --match-semver is used.
+`,
+
+	"repo_help": `
+Select another repository using the [HOST/]OWNER/REPO format
+`,
+
+	"version_help": `
+Show gh-describe version
+`,
+
+	"version": version,
 }
 
 type cmd struct {
+	Version      kong.VersionFlag `kong:"help=${version_help}"`
 	Repo         string           `kong:"short=R,help=${repo_help}"`
 	Commitish    []string         `kong:"arg,name=commit-ish,default=HEAD,help=${commitish_help}"`
 	Contains     bool             `kong:"help=${contains_help}"`
-	Debug        bool             `kong:"help=${debug_help}"`
 	All          bool             `kong:"help=${all_help}"`
 	Tags         bool             `kong:"help=${tags_help}"`
 	Long         bool             `kong:"help=${long_help}"`
 	Abbrev       *int             `kong:"placeholder='<n>',help=${abbrev_help}"`
 	ExactMatch   bool             `kong:"help=${exact_match_help}"`
 	Match        []string         `kong:"placeholder=<pattern>,help=${match_help}"`
-	RegexMatch   []string         `kong:"name=regex-match,placeholder=<regex>,help=${regex_match_help}"`
 	Exclude      []string         `kong:"placeholder=<pattern>,help=${exclude_help}"`
-	RegexExclude []string         `kong:"name=regex-exclude,placeholder=<regex>,help=${regex_exclude_help}"`
+	MatchRegex   []string         `kong:"placeholder=<regex>,help=${regex_match_help}"`
+	ExcludeRegex []string         `kong:"placeholder=<regex>,help=${regex_exclude_help}"`
 	MatchSemver  []string         `kong:"name=match-semver,placeholder=<constraint>,help=${match_semver_help}"`
 	SemverPrefix string           `kong:"name=semver-prefix,placeholder=<prefix>,help=${semver_prefix_help}"`
 	Always       bool             `kong:"help=${always_help}"`
-	Version      kong.VersionFlag `kong:"help=${version_help}"`
 
 	// Unsupported options from git-describe.
 	// Here so we can output a friendlier error message.
 	FirstParent bool `kong:"first-parent,hidden"`
 	NoMatch     bool `kong:"no-match,hidden"`
 	NoExclude   bool `kong:"no-exclude,hidden"`
-	Dirty       bool `kong:"dirty,hidden"`
-	Broken      bool `kong:"broken,hidden"`
-	Candidates  int  `kong:"candidates,hidden"`
+	Dirty       bool `kong:"hidden"`
+	Broken      bool `kong:"hidden"`
+	Candidates  int  `kong:"hidden"`
+	Debug       bool `kong:"hidden,help=${debug_help}"`
 
 	repository     repository.Repository
 	graphqlClient  *api.GraphQLClient
@@ -151,6 +268,9 @@ func run(ctx context.Context, cli *cmd) error {
 	if cli.Abbrev != nil && *cli.Abbrev == 0 && cli.Long {
 		return fatalf("--long is incompatible with --abbrev=0")
 	}
+	if cli.Contains {
+		cli.Tags = true
+	}
 
 	for _, m := range cli.Match {
 		g, err := glob.Compile(m)
@@ -168,7 +288,7 @@ func run(ctx context.Context, cli *cmd) error {
 		cli.excluders = append(cli.excluders, g)
 	}
 
-	for _, m := range cli.RegexMatch {
+	for _, m := range cli.MatchRegex {
 		r, err := regexp.Compile(m)
 		if err != nil {
 			return err
@@ -176,7 +296,7 @@ func run(ctx context.Context, cli *cmd) error {
 		cli.regexMatchers = append(cli.regexMatchers, r)
 	}
 
-	for _, e := range cli.RegexExclude {
+	for _, e := range cli.ExcludeRegex {
 		r, err := regexp.Compile(e)
 		if err != nil {
 			return err
