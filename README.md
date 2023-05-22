@@ -16,6 +16,7 @@ repository. It can be used as an extension for [gh](https://cli.github.com/) or 
 - `gh-describe` does not support blob references.
 - `gh-describe` only works as well as the GitHub API. It often fails on very large repositories such as 
    github.com/git/git.
+- `--debug` output is entirely different.
 
 ### Enhancements
 
@@ -33,7 +34,6 @@ repository. It can be used as an extension for [gh](https://cli.github.com/) or 
 - `--first-parent` is not supported because it isn't supported by GitHub's API.
 - `--no-match` and `--no-exclude` are not implemented because I don't have a use case for them and they would be
   non-trivial to implement. If you need them, open an issue and I'll consider it.
-- `--debug` hasn't been implemented yet.
 
 ## Installation
 
@@ -45,7 +45,7 @@ the [latest release](https://github.com/WillAbides/gh-describe/releases/latest).
 Or use go install:
 
 ```shell
-go install github.com/willabides/gh-describe@latest`
+go install github.com/willabides/gh-describe@latest
 ```
 
 ### gh extension
@@ -154,6 +154,9 @@ Flags:
                                          Before matching, the prefix is stripped from the tag name.
                                          Ignored unless --match-semver is used.
       --always                           Show commit object as fallback.
+      --debug                            Verbosely display information about the searching strategy
+                                         being employed to standard error. The tag name will still
+                                         be printed to standard out.
 ```
 
 <!--- end usage output --->

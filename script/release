@@ -17,7 +17,7 @@ GITHUB_SHA="${GITHUB_SHA:-"$(git rev-parse HEAD)"}"
 GITHUB_REPOSITORY="${GITHUB_REPOSITORY:-"WillAbides/gh-describe"}"
 
 # regex matches non-prerelease tags
-PREV_REF="$(script/gh-describe --tags --abbrev=0 --regex-match='v[0-9]+\.[0-9]+\.[0-9]+$' --always "$GITHUB_SHA")"
+PREV_REF="$(script/gh-describe --tags --abbrev=0 --match-semver '*' --semver-prefix 'v' --always "$GITHUB_SHA")"
 
 # On first release PREV_REF will be the same as GITHUB_SHA
 if [ "$GITHUB_SHA" = "$PREV_REF" ]; then

@@ -176,6 +176,7 @@ type cmd struct {
 	MatchSemver  []string         `kong:"name=match-semver,placeholder=<constraint>,help=${match_semver_help}"`
 	SemverPrefix string           `kong:"name=semver-prefix,placeholder=<prefix>,help=${semver_prefix_help}"`
 	Always       bool             `kong:"help=${always_help}"`
+	Debug        bool             `kong:"help=${debug_help}"`
 
 	// Unsupported options from git-describe.
 	// Here so we can output a friendlier error message.
@@ -185,7 +186,6 @@ type cmd struct {
 	Dirty       bool `kong:"hidden"`
 	Broken      bool `kong:"hidden"`
 	Candidates  int  `kong:"hidden"`
-	Debug       bool `kong:"hidden,help=${debug_help}"`
 
 	repository     repository.Repository
 	graphqlClient  *api.GraphQLClient
@@ -260,9 +260,6 @@ func run(ctx context.Context, cli *cmd) error {
 	}
 	if cli.NoExclude {
 		return fmt.Errorf("--no-exclude is not implemented")
-	}
-	if cli.Debug {
-		return fmt.Errorf("--debug is not implemented")
 	}
 
 	if cli.Abbrev != nil && *cli.Abbrev == 0 && cli.Long {
@@ -464,43 +461,52 @@ func (c *cmd) match(name string) bool {
 	}
 	for _, e := range c.excluders {
 		if e.Match(name) {
+			c.debug("match: %q excluded by glob %q", name, e)
 			return false
 		}
 	}
 	for _, e := range c.regexExcluders {
 		if e.MatchString(name) {
+			c.debug("match: %q excluded by regex %q", name, e)
 			return false
 		}
 	}
-	if len(c.matchers) == 0 && len(c.regexMatchers) == 0 {
+	if len(c.matchers) == 0 && len(c.regexMatchers) == 0 && len(c.semverMatchers) == 0 {
+		c.debug("match: %q included by default", name)
 		return true
 	}
 	for _, m := range c.matchers {
 		if m.Match(name) {
+			c.debug("match: %q included by glob %q", name, m)
 			return true
 		}
 	}
 	for _, m := range c.regexMatchers {
 		if m.MatchString(name) {
+			c.debug("match: %q included by regex %q", name, m)
 			return true
 		}
+	}
+	semverString, hasPrefix := strings.CutPrefix(name, c.SemverPrefix)
+	if !hasPrefix {
+		c.debug("match: %q excluded by semver prefix %q", name, c.SemverPrefix)
+		return false
+	}
+	v, err := semver.StrictNewVersion(semverString)
+	if err != nil {
+		c.debug("match: %q excluded by semver %q", name, err)
+		return false
 	}
 	for _, m := range c.semverMatchers {
-		n, ok := strings.CutPrefix(name, c.SemverPrefix)
-		if !ok {
-			continue
-		}
-		v, err := semver.StrictNewVersion(n)
-		if err != nil {
-			continue
-		}
-		ok, reasons := m.Validate(v)
+		valid, reasons := m.Validate(v)
 		// use reasons when implementing --debug
 		_ = reasons
-		if ok {
+		if valid {
+			c.debug("match: %q included by semver %q", name, m)
 			return true
 		}
 	}
+	c.debug("match: %q excluded by not matching anything", name)
 	return false
 }
 
@@ -557,4 +563,13 @@ func (c *cmd) getAllRefs(ctx context.Context, commitish, prefix string) ([]refNo
 		variables["afterCursor"] = githubv4.NewString(query.Repository.Refs.PageInfo.EndCursor)
 	}
 	return refs, nil
+}
+
+func (c *cmd) debug(format string, args ...interface{}) {
+	if c.Debug {
+		if !strings.HasSuffix(format, "\n") {
+			format += "\n"
+		}
+		fmt.Fprintf(os.Stderr, format, args...)
+	}
 }
