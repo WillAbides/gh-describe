@@ -42,8 +42,6 @@ github.com/shurcooL/githubv4 v0.0.0-20230424031643-6cea62ecd5a9 h1:nCBaIs5/R0HFP
 github.com/shurcooL/githubv4 v0.0.0-20230424031643-6cea62ecd5a9/go.mod h1:hAF0iLZy4td2EX+/8Tw+4nodhlMrwN3HupfaXj3zkGo=
 github.com/shurcooL/graphql v0.0.0-20220606043923-3cf50f8a0a29 h1:B1PEwpArrNp4dkQrfxh/abbBAOZBVp0ds+fBEOUOqOc=
 github.com/shurcooL/graphql v0.0.0-20220606043923-3cf50f8a0a29/go.mod h1:AuYgA5Kyo4c7HfUmvRGs/6rGlMMV/6B1bVnB9JxJEEg=
-github.com/shurcool/githubv4 v0.0.0-20230424031643-6cea62ecd5a9 h1:CWlD9D4R1JSAGRGke/xwabcLvPSnOaf7mc27wpPZ1VU=
-github.com/shurcool/githubv4 v0.0.0-20230424031643-6cea62ecd5a9/go.mod h1:Rx+WSUainkHWg5qIfDBVuYoAU6fDL4/+A4/r1jryErg=
 github.com/stretchr/objx v0.1.0/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=
 github.com/stretchr/objx v0.4.0/go.mod h1:YvHI0jy2hoMjB+UWwv71VJQ9isScKT/TqJzVSSt89Yw=
 github.com/stretchr/objx v0.5.0/go.mod h1:Yh+to48EsGEfYuaHDzXPcE3xhTkx73EhmCGUpEOglKo=
