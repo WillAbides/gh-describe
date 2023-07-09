@@ -14,7 +14,7 @@ import (
 	"github.com/cli/go-gh/v2/pkg/api"
 	"github.com/cli/go-gh/v2/pkg/repository"
 	"github.com/gobwas/glob"
-	"github.com/shurcool/githubv4"
+	"github.com/shurcooL/githubv4"
 )
 
 var version = "unknown"
